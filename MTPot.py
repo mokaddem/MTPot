@@ -2,13 +2,15 @@
 
 import argparse
 import logging
-import gevent, gevent.server
+import gevent, gevent.server, gevent.pool
 from telnetsrv.green import TelnetHandler, command
 import traceback
 
 from config import HoneyConfig, MissingConfigField
 from syslog_logger import get_syslog_logger
+import socket
 
+#socket.setdefaulttimeout(60)
 COMMANDS = {}
 COMMANDS_EXECUTED = {}
 BUSY_BOX = "/bin/busybox"
@@ -18,6 +20,55 @@ FINGERPRINTED_IPS = []
 honey_logger = logging.getLogger("HoneyTelnet")
 syslogger = None
 config = None
+
+class CustomPool(gevent.pool.Pool):
+
+    def __init__(self, size=None, greenlet_class=None):
+        self.open_connection = []   #FIFO
+        self.open_connection_dico_ip = {} #2-way dico
+        self.open_connection_dico_green = {}
+        gevent.pool.Pool.__init__(self, size, greenlet_class)
+
+    def add(self, greenlet):
+        print '**** add ****'
+        self.print_pool_info()
+        source = greenlet.args[2][1][0] + ':' + str(greenlet.args[2][1][1])
+        if self.free_count() < 2:
+            print '/!\ pool full, untracking greenlet /!\ '
+            oldest_source = self.open_connection[0]
+            oldest_greenlet = self.open_connection_dico_ip[oldest_source]
+            self.killone(oldest_greenlet, block=False)
+            #cleaning
+            #self.open_connection.remove(oldest_source)
+            #del self.open_connection_dico_ip[oldest_source]
+            #del self.open_connection_dico_green[str(oldest_greenlet)]
+            print 'successfully deleted greelet'
+
+        self.open_connection.append(source)
+        self.open_connection_dico_ip[source] = greenlet
+        self.open_connection_dico_green[str(greenlet)] = source
+        self.print_pool_info()
+        print self.free_count()
+        gevent.pool.Pool.add(self, greenlet)
+
+    def _discard(self, greenlet):
+        print '**** discard ****'
+        self.print_pool_info()
+        to_del_greenlet = str(greenlet)
+        to_del_source = self.open_connection_dico_green[to_del_greenlet]
+        gevent.pool.Pool._discard(self, greenlet)
+        #cleaning
+        del self.open_connection_dico_ip[to_del_source]
+        del self.open_connection_dico_green[to_del_greenlet]
+        self.open_connection.remove(to_del_source)
+        self.print_pool_info()
+
+    def print_pool_info(self):
+        print 'open connection', self.open_connection
+        #print 'dico ip', self.open_connection_dico_ip
+        #print 'dico green', self.open_connection_dico_green
+
+
 
 class MyTelnetHandler(TelnetHandler):
     WELCOME = 'welcome'
@@ -170,8 +221,15 @@ def main():
     except MissingConfigField:
         honey_logger.info("Syslog reporting disabled, to enable it add its configuration to the configuration file")
     COMMANDS = config.commands
-    server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle)
-    honey_logger.info("Listening on %d...", config.port)
+    #server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle)
+    #honey_logger.info("Listening on %d...", config.port)
+
+    #pool = gevent.pool.Pool(config.pool)
+    #server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle, spawn=pool)
+    custom_pool = CustomPool(config.pool)
+    server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle, spawn=custom_pool)
+
+    honey_logger.info("Listening on port="+str(config.port)+".ip="+str( config.ip))
     server.serve_forever()
 
 if __name__ == '__main__':
