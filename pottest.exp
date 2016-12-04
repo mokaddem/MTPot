@@ -1,0 +1,14 @@
+#!/usr/bin/expect -f
+set iter 10
+set ip 192.168.0.3
+set port 23
+set instance [lindex $argv 0]
+for {set i 0} {$i < $iter} {incr i 1} {
+    spawn nc $ip $port
+    expect "name:"
+    send "u$instance-$i\n"
+    expect "Password:"
+    send "pass$instance-$i\n"
+#    sleep 1
+#    send "quit\n"
+}
