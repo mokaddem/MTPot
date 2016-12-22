@@ -10,9 +10,11 @@ from config import HoneyConfig, MissingConfigField
 from syslog_logger import get_syslog_logger
 import socket
 
-default_timeout = 60
+default_timeout = 60 #Use to timeout the connection
 COMMANDS = {}
 COMMANDS_EXECUTED = {}
+OVERWRITE_COMMANDS = {} #Use to overwrite default telnet command behavior crahsing the handler (e.g. 'help')
+OVERWRITE_COMMANDS_LIST = ["help"] #Don't forget to update the list when adding new commands
 BUSY_BOX = "/bin/busybox"
 MIRAI_SCANNER_COMMANDS = ["shell", "sh", "enable"]
 FINGERPRINTED_IPS = []
@@ -22,51 +24,52 @@ syslogger = None
 config = None
 custom_pool = None
 
+
+'''
+    An extension of the gevent pool.
+    If this pool becomes full, it drops oldest connections instead of waiting their end.
+'''
 class CustomPool(gevent.pool.Pool):
 
     def __init__(self, size=None, greenlet_class=None):
-        self.open_connection = []   #FIFO
+        self.open_connection = []   #FIFO for connection
         self.open_connection_dico_ip = {} #2-way dico
-        self.open_connection_dico_green = {}
+        self.open_connection_dico_green = {} #2-way dico
         gevent.pool.Pool.__init__(self, size+1, greenlet_class) #+1 to avoid the semaphore
 
+    # Add the greenlet to the pool
     def add(self, greenlet):
-        #print '**** add ****'
         source = greenlet.args[2][1][0] + ':' + str(greenlet.args[2][1][1])
         socket = greenlet.args[2][0]
 
-        # With 1, we avoid the wait semaphore
+        # With 1, we avoid the wait caused by the semaphore
         if self.free_count() < 2:
-            print '/!\ pool full, untracking oldest greenlet /!\ '
+            # /!\ pool full, untracking oldest greenlet /!\
             oldest_source = self.open_connection[0]
             oldest_greenlet = self.open_connection_dico_ip[oldest_source]
 
             #kill the greenlet, this also close its associated socket
             self.killone(oldest_greenlet, block=False)
 
-
-        #Add the connection
+        #Add the connection to the dicos
         self.open_connection.append(source)
         self.open_connection_dico_ip[source] = greenlet
         self.open_connection_dico_green[str(greenlet)] = source
-        self.print_pool_info()
         gevent.pool.Pool.add(self, greenlet)
 
+    # discard the greenlet, free one slot of the pool
     def _discard(self, greenlet):
-        #print '**** discard ****'
         to_del_greenlet = str(greenlet)
         to_del_source = self.open_connection_dico_green[to_del_greenlet]
         gevent.pool.Pool._discard(self, greenlet)
 
-        #cleaning
+        #cleaning dicos
         del self.open_connection_dico_ip[to_del_source]
         del self.open_connection_dico_green[to_del_greenlet]
         self.open_connection.remove(to_del_source)
-        self.print_pool_info()
 
     def print_pool_info(self):
         print 'pool size', self.free_count()-1
-        return
         #print 'open connection', self.open_connection
         #print 'dico ip', self.open_connection_dico_ip
         #print 'dico green', self.open_connection_dico_green
@@ -81,6 +84,10 @@ class MyTelnetHandler(TelnetHandler):
     PROMPT = ">"
     authNeedUser = True
     authNeedPass = True
+
+    @command(OVERWRITE_COMMANDS_LIST)
+    def shell_respond2(self, params):
+        self.writeresponse(OVERWRITE_COMMANDS[self.input.raw])
 
     @command(MIRAI_SCANNER_COMMANDS)
     def shell_respond(self, params):
@@ -181,7 +188,7 @@ class MyTelnetHandler(TelnetHandler):
         try:
             TelnetHandler.inputcooker(self)
         except socket.timeout as e:
-            print 'socket-'+str(self.client_address[0])+':'+str(self.client_address[1]), e
+            #print 'socket-'+str(self.client_address[0])+':'+str(self.client_address[1]), e
             custom_pool.remove_connection(str(self.client_address[0])+':'+str(self.client_address[1]))
             honey_logger.debug("[%s:%d] session timed out", self.client_address[0], self.client_address[1])
             self.finish()
@@ -211,6 +218,7 @@ def get_args():
 
 def main():
     global COMMANDS
+    global OVERWRITE_COMMANDS
     global syslogger
     global config
     global custom_pool
@@ -240,6 +248,7 @@ def main():
     except MissingConfigField:
         honey_logger.info("Syslog reporting disabled, to enable it add its configuration to the configuration file")
     COMMANDS = config.commands
+    OVERWRITE_COMMANDS = config.overwrite_commands
 
     try:
         the_timeout = config.timeout
