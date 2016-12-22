@@ -12,7 +12,7 @@
 import json
 
 MANDATORY_FIELDS = ["port", "commands", "ddos_name", "ip", "pool"]
-OPTIONAL_FIELDS = ["syslog_address", "syslog_port", "syslog_protocol", "timeout"]
+OPTIONAL_FIELDS = ["syslog_address", "syslog_port", "syslog_protocol", "timeout", "overwrite_commands"]
 
 class InvalidConfiguration(Exception):
     pass
