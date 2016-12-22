@@ -87,7 +87,12 @@ class MyTelnetHandler(TelnetHandler):
 
     @command(OVERWRITE_COMMANDS_LIST)
     def shell_respond2(self, params):
-        self.writeresponse(OVERWRITE_COMMANDS[self.input.raw])
+        try:
+            resp = OVERWRITE_COMMANDS[self.input.raw]
+        except KeyError as e:
+            # Overwrite command not defined in config
+            resp = ""
+        self.writeresponse(resp)
 
     @command(MIRAI_SCANNER_COMMANDS)
     def shell_respond(self, params):
@@ -248,12 +253,17 @@ def main():
     except MissingConfigField:
         honey_logger.info("Syslog reporting disabled, to enable it add its configuration to the configuration file")
     COMMANDS = config.commands
-    OVERWRITE_COMMANDS = config.overwrite_commands
 
     try:
         the_timeout = config.timeout
     except MissingConfigField:
         the_timeout = default_timeout
+
+    try:
+        OVERWRITE_COMMANDS = config.overwrite_commands
+    except MissingConfigField:
+        OVERWRITE_COMMANDS = {}
+        OVERWRITE_COMMANDS_LIST = []
 
     socket.setdefaulttimeout(the_timeout)
     custom_pool = CustomPool(config.pool)
