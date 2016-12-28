@@ -34,12 +34,7 @@ class MyTelnetHandler(TelnetHandler):
 
     @command(OVERWRITE_COMMANDS_LIST)
     def telnet_commands_respond(self, params):
-        try:
-            resp = OVERWRITE_COMMANDS[self.input.raw]
-        except KeyError as e:
-            # Overwrite command not defined in config
-            resp = ""
-        self.writeresponse(resp)
+        self.writeresponse(OVERWRITE_COMMANDS.get(self.input.raw, ""))
 
     @command(MIRAI_SCANNER_COMMANDS)
     def shell_respond(self, params):
