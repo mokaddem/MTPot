@@ -33,7 +33,7 @@ class MyTelnetHandler(TelnetHandler):
     authNeedPass = True
 
     @command(OVERWRITE_COMMANDS_LIST)
-    def shell_respond2(self, params):
+    def telnet_commands_respond(self, params):
         try:
             resp = OVERWRITE_COMMANDS[self.input.raw]
         except KeyError as e:
