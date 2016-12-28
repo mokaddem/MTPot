@@ -213,7 +213,7 @@ def main():
         OVERWRITE_COMMANDS_LIST = []
 
     socket.setdefaulttimeout(the_timeout)
-    custom_pool = CustomPool.CustomPool(config.pool)
+    custom_pool = CustomPool.CustomPool(honey_logger, config.pool)
     server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle, spawn=custom_pool)
 
     honey_logger.info("Listening on port="+str(config.port)+".ip="+str( config.ip)+" with timeout="+str(the_timeout))

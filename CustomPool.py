@@ -5,10 +5,11 @@ class CustomPool(gevent.pool.Pool):
     
     If this pool becomes full, it drops oldest connections instead of waiting their end.
     """
-    def __init__(self, size=0, greenlet_class=None):
+    def __init__(self, logger, size=0, greenlet_class=None):
         self.open_connection = []   #FIFO for connection
         self.open_connection_dico_ip = {} #2-way dico
         self.open_connection_dico_green = {} #2-way dico
+        self.logger = logger
         gevent.pool.Pool.__init__(self, size + 1, greenlet_class) #+1 to avoid the semaphore
 
     # Add the greenlet to the pool
@@ -29,7 +30,7 @@ class CustomPool(gevent.pool.Pool):
         self.open_connection.append(source)
         self.open_connection_dico_ip[source] = greenlet
         self.open_connection_dico_green[str(greenlet)] = source
-        gevent.pool.Pool.add(self, greenlet)
+        gevent.pool.Pool.add( self, greenlet)
 
     # discard the greenlet, free one slot of the pool
     def _discard(self, greenlet):
@@ -42,11 +43,8 @@ class CustomPool(gevent.pool.Pool):
         del self.open_connection_dico_green[to_del_greenlet]
         self.open_connection.remove(to_del_source)
 
-    def print_pool_info(self):
-        print 'pool size', self.free_count()-1
-        #print 'open connection', self.open_connection
-        #print 'dico ip', self.open_connection_dico_ip
-        #print 'dico green', self.open_connection_dico_green
+    def log_pool_info(self):
+        self.logger.debug("pool_size: %d", self.free_count() - 1)
 
     def remove_connection(self, to_del_source):
         to_del_greenlet = self.open_connection_dico_ip[to_del_source]
