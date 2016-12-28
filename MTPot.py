@@ -2,7 +2,8 @@
 
 import argparse
 import logging
-import gevent, gevent.server, gevent.pool
+import gevent, gevent.server
+import CustomPool
 from telnetsrv.green import TelnetHandler, command
 import traceback
 
@@ -23,60 +24,6 @@ honey_logger = logging.getLogger("HoneyTelnet")
 syslogger = None
 config = None
 custom_pool = None
-
-
-'''
-    An extension of the gevent pool.
-    If this pool becomes full, it drops oldest connections instead of waiting their end.
-'''
-class CustomPool(gevent.pool.Pool):
-
-    def __init__(self, size=None, greenlet_class=None):
-        self.open_connection = []   #FIFO for connection
-        self.open_connection_dico_ip = {} #2-way dico
-        self.open_connection_dico_green = {} #2-way dico
-        gevent.pool.Pool.__init__(self, size+1, greenlet_class) #+1 to avoid the semaphore
-
-    # Add the greenlet to the pool
-    def add(self, greenlet):
-        source = greenlet.args[2][1][0] + ':' + str(greenlet.args[2][1][1])
-        socket = greenlet.args[2][0]
-
-        # With 1, we avoid the wait caused by the semaphore
-        if self.free_count() < 2:
-            # /!\ pool full, untracking oldest greenlet /!\
-            oldest_source = self.open_connection[0]
-            oldest_greenlet = self.open_connection_dico_ip[oldest_source]
-
-            #kill the greenlet, this also close its associated socket
-            self.killone(oldest_greenlet, block=False)
-
-        #Add the connection to the dicos
-        self.open_connection.append(source)
-        self.open_connection_dico_ip[source] = greenlet
-        self.open_connection_dico_green[str(greenlet)] = source
-        gevent.pool.Pool.add(self, greenlet)
-
-    # discard the greenlet, free one slot of the pool
-    def _discard(self, greenlet):
-        to_del_greenlet = str(greenlet)
-        to_del_source = self.open_connection_dico_green[to_del_greenlet]
-        gevent.pool.Pool._discard(self, greenlet)
-
-        #cleaning dicos
-        del self.open_connection_dico_ip[to_del_source]
-        del self.open_connection_dico_green[to_del_greenlet]
-        self.open_connection.remove(to_del_source)
-
-    def print_pool_info(self):
-        print 'pool size', self.free_count()-1
-        #print 'open connection', self.open_connection
-        #print 'dico ip', self.open_connection_dico_ip
-        #print 'dico green', self.open_connection_dico_green
-
-    def remove_connection(self, to_del_source):
-        to_del_greenlet = self.open_connection_dico_ip[to_del_source]
-        self._discard(to_del_greenlet)
 
 
 class MyTelnetHandler(TelnetHandler):
@@ -266,7 +213,7 @@ def main():
         OVERWRITE_COMMANDS_LIST = []
 
     socket.setdefaulttimeout(the_timeout)
-    custom_pool = CustomPool(config.pool)
+    custom_pool = CustomPool.CustomPool(config.pool)
     server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle, spawn=custom_pool)
 
     honey_logger.info("Listening on port="+str(config.port)+".ip="+str( config.ip)+" with timeout="+str(the_timeout))
