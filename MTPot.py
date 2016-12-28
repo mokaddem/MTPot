@@ -136,7 +136,7 @@ class MyTelnetHandler(TelnetHandler):
             TelnetHandler.inputcooker(self)
         except socket.timeout as e:
             #print 'socket-'+str(self.client_address[0])+':'+str(self.client_address[1]), e
-            custom_pool.remove_connection(str(self.client_address[0])+':'+str(self.client_address[1]))
+            custom_pool.remove_connection(str(self.client_address[0]) + ':' + str(self.client_address[1]))
             honey_logger.debug("[%s:%d] session timed out", self.client_address[0], self.client_address[1])
             self.finish()
         except socket.error as e:
