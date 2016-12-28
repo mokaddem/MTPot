@@ -212,7 +212,7 @@ def main():
     custom_pool = CustomPool.CustomPool(honey_logger, config.pool)
     server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle, spawn=custom_pool)
 
-    honey_logger.info("Listening on port="+str(config.port)+".ip="+str( config.ip)+" with timeout="+str(the_timeout))
+    honey_logger.info("Listening on %s:%d with timeout=%d", config.ip, config.port, the_timeout)
     server.serve_forever()
 
 if __name__ == '__main__':
