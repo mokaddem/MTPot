@@ -5,11 +5,11 @@ class CustomPool(gevent.pool.Pool):
     
     If this pool becomes full, it drops oldest connections instead of waiting their end.
     """
-    def __init__(self, size=None, greenlet_class=None):
+    def __init__(self, size=0, greenlet_class=None):
         self.open_connection = []   #FIFO for connection
         self.open_connection_dico_ip = {} #2-way dico
         self.open_connection_dico_green = {} #2-way dico
-        gevent.pool.Pool.__init__(self, size+1, greenlet_class) #+1 to avoid the semaphore
+        gevent.pool.Pool.__init__(self, size + 1, greenlet_class) #+1 to avoid the semaphore
 
     # Add the greenlet to the pool
     def add(self, greenlet):
