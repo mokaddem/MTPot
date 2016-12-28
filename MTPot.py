@@ -10,6 +10,7 @@ import traceback
 from config import HoneyConfig, MissingConfigField
 from syslog_logger import get_syslog_logger
 import socket
+import sys, errno
 
 default_timeout = 60 #Use to timeout the connection
 COMMANDS = {}
@@ -26,7 +27,7 @@ config = None
 custom_pool = None
 
 
-class MyTelnetHandler(TelnetHandler):
+class MyTelnetHandler(TelnetHandler, object):
     WELCOME = 'welcome'
     PROMPT = ">"
     authNeedUser = True
@@ -133,14 +134,18 @@ class MyTelnetHandler(TelnetHandler):
     #Catch tracestack error
     def inputcooker(self):
         try:
-            TelnetHandler.inputcooker(self)
+            super(MyTelnetHandler, self).inputcooker()
         except socket.timeout as e:
             #print 'socket-'+str(self.client_address[0])+':'+str(self.client_address[1]), e
             custom_pool.remove_connection(str(self.client_address[0]) + ':' + str(self.client_address[1]))
             honey_logger.debug("[%s:%d] session timed out", self.client_address[0], self.client_address[1])
             self.finish()
         except socket.error as e:
-            pass
+            if e.errno != errno.EBADF: # file descriptor error
+                raise
+            else:
+                pass
+
 
 def get_args():
     parser = argparse.ArgumentParser()
