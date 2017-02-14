@@ -208,10 +208,8 @@ def main():
 
     try:
         OVERWRITE_COMMANDS = config.overwrite_commands
-        OVERWRITE_COMMANDS_LIST = []
     except MissingConfigField:
         OVERWRITE_COMMANDS = {}
-        OVERWRITE_COMMANDS_LIST = []
 
     socket.setdefaulttimeout(the_timeout)
     custom_pool = CustomPool.CustomPool(honey_logger, config.pool)
