@@ -219,7 +219,7 @@ def main():
     honey_logger.info("Listening on %s:%d with timeout=%d", config.ip, config.port, the_timeout)
 
     # write pid into a file
-    with open(str(int(time.time())), 'w') as f:
+    with open('MTPot_pid.txt', 'w') as f:
         f.write(str(os.getpid()))
 
     server.serve_forever()
