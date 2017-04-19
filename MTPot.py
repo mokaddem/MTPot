@@ -11,6 +11,7 @@ from config import HoneyConfig, MissingConfigField
 from syslog_logger import get_syslog_logger
 import socket
 import sys, errno
+import os, time
 
 default_timeout = 60 #Use to timeout the connection
 COMMANDS = {}
@@ -216,6 +217,11 @@ def main():
     server = gevent.server.StreamServer((config.ip, config.port), MyTelnetHandler.streamserver_handle, spawn=custom_pool)
 
     honey_logger.info("Listening on %s:%d with timeout=%d", config.ip, config.port, the_timeout)
+
+    # write pid into a file
+    with open(str(int(time.time())), 'w') as f:
+        f.write(os.getpid())
+
     server.serve_forever()
 
 if __name__ == '__main__':
