@@ -220,7 +220,7 @@ def main():
 
     # write pid into a file
     with open(str(int(time.time())), 'w') as f:
-        f.write(os.getpid())
+        f.write(str(os.getpid()))
 
     server.serve_forever()
 
