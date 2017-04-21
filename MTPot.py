@@ -166,6 +166,13 @@ def get_args():
         type=str,
         required=False,
         help='Output the results to this file')
+    parser.add_argument(
+        '-f',
+        '--pidFilename',
+        type=str,
+        required=False,
+        default='pidFilename',
+        help='The name given to the PID file')
     return parser.parse_args()
 
 
@@ -219,7 +226,7 @@ def main():
     honey_logger.info("Listening on %s:%d with timeout=%d", config.ip, config.port, the_timeout)
 
     # write pid into a file
-    with open('MTPot_pid.txt', 'w') as f:
+    with open(args.pidFilename, 'w') as f:
         f.write(str(os.getpid()))
 
     server.serve_forever()
